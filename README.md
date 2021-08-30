@@ -33,7 +33,13 @@ services:
         ports:
             - "9906:3306"
 ```
-`Note` We have mapped a folder named `php` to the document root of the webserver so that we can easily tranfer files to the environment. Also the MySql credentials have been supplied here. In order to make the containers work together, an extra step would be required. Inside the `php` folder create a text file named Dockerfile where you will put the following:
+`Note` We have mapped a folder named `php` to the document root of the webserver so that we can easily tranfer files to the environment. We will also start the server as `nobody`, so you will have to make a folder named `uploads` and change its ownership to `nobody`. In the folder where you have cloned this repo:
+```
+mkdir -p php/uploads
+chown -R nobody php/uploads
+```
+As well as these steps, the MySql credentials and the ports have been supplied here. 
+In order to make the containers work together, an extra step would be required. Inside the `php` folder create a text file named Dockerfile where you will put the following:
 ```
 FROM php:8.0-apache
 RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli pdo pdo_mysql
@@ -41,3 +47,9 @@ RUN apt-get update && apt-get upgrade -y
 ```
 Finally you can fire up the web system by `docker-compose up`.
 
+## Step 2: NodeJS and the needed programs for JS coding
+The whole thing could be done from within NodeJS but I opted for having q separate webserver and DB. Using NodeJS we would developt the codes and then prepare them for the web setup. 
+The library we want to utilize is [Enigma](https://github.com/cubbit/enigma). It provides us with the tools to encrypt web streams and many other things. The library itself uses NodeJS run-time environment and TypeScript so in order to make the final code run in our browser, we would need to convert the codes to JavaScript. For this reason, we will install the library along with [Browserify](https://browserify.org) and [tsify](https://www.npmjs.com/package/tsify):
+```
+npm install @cubbit/enigma @cubbit/web-file-stream browserify tsify
+```
