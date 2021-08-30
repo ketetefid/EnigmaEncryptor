@@ -177,5 +177,125 @@ Set up a simple page layout as `index.php` in the `php` folder with the followin
 ```
 If you upload a file, it should give the same file back to you with the name `myFilename`. You should see a note about encrypting and decrypting in the console as well.
 
+## Step 4: The DB implementation
+The last step was done to help us get familiar with the procedure, as debugging with a full setup might become very time-consuming. Now that we have been able to make use of the Enigma library, we will construct a database where the information for the encrypted files will be stored.
+When the user uploads the file, through a post request to our server, the encrypted file info will be placed in a table. In return, a unique ID about the uploaded file (which will be retrieved from the server) and the encryption key (which is extracted in the browser) will be given back to the user. This will enable him/her to request a download later by submitting the ID and the key. 
+In the `php` folder, populate a file named `upload.php` with the following content:
+```php
+<?php
 
+// The MySQL service named in the docker-compose.yml.
+$host = 'db';
+
+// Database use name
+$user = 'MYSQL_USER';
+
+//database user password
+$pass = 'MYSQL_PASSWORD';
+
+// database name
+$mydatabase = 'MYSQL_DATABASE';
+// check the mysql connection status
+
+$conn = new mysqli($host, $user, $pass, $mydatabase);
+// Check connection
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+$mytable="enc_filesDB";
+
+// For resetting the table if you want
+/*
+   $sql = "DROP TABLE IF EXISTS $mytable";
+
+   if ($conn->query($sql) !== TRUE) {
+   echo "\nError deleting table: " . $conn->error;
+   }
+ */
+
+// Creating the table
+$sql = "
+CREATE TABLE IF NOT EXISTS $mytable
+  (
+     id       INT NOT NULL auto_increment,
+     uuid     TEXT NOT NULL,
+     filename TEXT NOT NULL,
+     size     TEXT NOT NULL,
+     PRIMARY KEY (id)
+  )  
+";
+
+if ($conn->query($sql) !== TRUE) {
+    echo "\nError creating the table: " . $conn->error;
+}
+// An implementation when the user has submitted a file for upload 
+if (isset($_POST['encfile'])) {
+
+    $blob = $_POST['encfile'];
+    $blobuid = bin2hex(random_bytes(16));
+    $blobpath = './uploads/'.bin2hex(random_bytes(20)); // to force usage of the form
+    file_put_contents ($blobpath,$blob);
+    $blobmeta = stat($blobpath);
+    $blobsize = $blobmeta['size'];
+
+    $sql = "INSERT INTO $mytable (id,uuid,filename,size) VALUES (0,'$blobuid','$blobpath','$blobsize')";
+    
+    if ($conn->query($sql) !== TRUE) {
+	echo "\nError inserting entries. " . $conn->error;
+    }
+
+    // Send the UUID back
+    echo $blobuid;
+
+}
+
+// Another implementation when the user has submitted a file for upload 
+if (isset($_FILES["encfile"])) {
+    $blobuid = bin2hex(random_bytes(16));
+    $blobpath = './uploads/'.bin2hex(random_bytes(20)); // to force usage of the form
+    if (move_uploaded_file($_FILES["encfile"]["tmp_name"], $blobpath) !== TRUE) {
+	echo "The blob was NOT uploaded successfully.";
+    }
+    
+    $blobmeta = stat($blobpath);
+    $blobsize = $_FILES["encfile"]["size"];
+
+    $sql = "INSERT INTO $mytable (id,uuid,filename,size) VALUES (0,'$blobuid','$blobpath','$blobsize')";
+    
+    if ($conn->query($sql) !== TRUE) {
+	echo "\nError inserting entries. " . $conn->error;
+    }
+
+    // Send the UUID back
+    echo $blobuid;
+}
+
+if (isset($_POST['mykey']) and isset($_POST['myuuid'])) {
+
+    $fuuid = $_POST['myuuid'];
+    $deckey = $_POST['mykey'];
+
+    // Bad practice because of injection
+    //$sql = "SELECT filename FROM $mytable WHERE uuid = '".$fuuid."'";
+    //$rs = $conn->query($sql);
+
+
+    $sql = "SELECT filename FROM $mytable WHERE uuid = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param('s',$fuuid);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+	$thefilename=$row['filename'];
+    }
+    
+    echo $thefilename;
+}
+
+// closing connection
+$conn->close();
+?>
+```
+As it is clear, the file includes information on how to connect to the DB. It creates a table with `id`, `uuid`, `filename` and `size` columns where the filename stores the path of the encrypted file. In the last two sections, the server will accept post requests when the user submits his/her encrypted file, and it will store the data in the table giving back the ID. In the last post check, it will retrieve the information form the DB when a user wants to download the uploaded file by giving back the path to the hosted encrypted file. Again, this is only for storing information and the encryption/decryption is going to be done on the client side.
 
