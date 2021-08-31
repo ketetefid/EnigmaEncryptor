@@ -5,7 +5,7 @@ We want to have an encryption vault where we can upload a file. The file will be
 
 ## Step 1: Setting up the development environment
 
-We would be utilizing Docker to setup an Apache-PHP webserver along with a MySql server for storing the uploaded entries. The following code will got to the `docker-compose.yml` file.
+We would be utilizing Docker to setup an Apache-PHP webserver along with a MySql server for storing the uploaded entries. The following code will go to the `docker-compose.yml` file.
 ```yml
 version: '3.8'
 services:
