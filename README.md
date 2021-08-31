@@ -522,7 +522,7 @@ Our index.php will be adapted to do the fetching and calling the functions:
 			     decFile(uInt8Array,hex2buf(key),setFile2);
 			     $.when(decF).done(function(){
 				 console.log("done");
-				 var blob=new Blob([final_file] );
+				 var blob=new Blob([final_file2] );
 				 var link=document.createElement('a');
 				 link.href=window.URL.createObjectURL(blob);
 				 link.download="myFileName";
