@@ -299,3 +299,234 @@ $conn->close();
 ```
 As it is clear, the file includes information on how to connect to the DB. It creates a table with `id`, `uuid`, `filename` and `size` columns where the filename stores the path of the encrypted file. In the last two sections, the server will accept post requests when the user submits his/her encrypted file, and it will store the data in the table giving back the ID. In the last post check, it will retrieve the information form the DB when a user wants to download the uploaded file by giving back the path to the hosted encrypted file. Again, this is only for storing information and the encryption/decryption is going to be done on the client side.
 
+## Step 5: Uploading, encrypting, storing -> retrieving, decrypting, downloading
+
+Now we want to expand our webpage so that upon uploading a file, it encrypts it and sends a request to the server to store the file and its data. Then, it will show the ID and the encryption key to the user. Later, when a user submits the key and ID, the page will fetch the encrypted file data from the DB and will receive the path to the encrypted file. The page will get it, decrypt it and will offer the download to the user.
+
+At this point we will write two TS functions, one for ecnrypting and the other for decrypting. These will be included in our page in the script tag.
+
+The encrypting function:
+```js
+import Enigma from '@cubbit/enigma';
+import {WebFileStream} from '@cubbit/web-file-stream';
+import {CipherGCM} from 'crypto';
+import {Stream} from 'stream';
+
+function encFile(file,cb) {
+    Enigma.init().then(() =>
+	{
+	    const file_stream = WebFileStream.create_read_stream(file);
+	    const aes = new Enigma.AES();
+	    aes.init();
+	    const iv = Enigma.Random.bytes(16);
+
+	    const aes_stream = aes.encrypt_stream(iv);
+	    aes_stream.once('finish', () => console.log('File encrypted'));
+	    file_stream.pipe(aes_stream);
+
+            let enc_buffer = Buffer.alloc(0);
+            aes_stream.on('readable', () =>
+		{
+		    const data = aes_stream.read() as Buffer;
+		    if(data)
+			enc_buffer = Buffer.concat([enc_buffer, data]);
+		}).once('finish', () => {
+		    const tag = (aes_stream as CipherGCM).getAuthTag()
+
+		    var enc_bufferwithtag;
+		    enc_bufferwithtag = Buffer.concat([enc_buffer, tag]);
+		    console.log("the data+tag in the encrypt function=",enc_bufferwithtag);
+		    console.log("tag in the encrypt function=",tag);
+		    console.log("key in the encrypt function=",iv);
+		    console.log("the data in the encrypt function=",enc_buffer);
+		    cb(enc_bufferwithtag,iv);
+		    });
+
+	});
+}
+
+module.exports = encFile;
+```
+And the function for decrypting:
+```js
+import Enigma from '@cubbit/enigma';
+import {WebFileStream} from '@cubbit/web-file-stream';
+//import {CipherGCM} from 'crypto';
+import {Stream} from 'stream';
+
+function decFile(enc_buffer,iv,cb) {
+    Enigma.init().then(() =>
+	{
+	    const aes = new Enigma.AES();
+	    aes.init();
+
+	    console.log ("the whole in the decrypt function=",enc_buffer);
+	    const tag = enc_buffer.slice(-16);
+	    const enc_data = enc_buffer.slice(0,enc_buffer.length-16);
+
+	    console.log("the tag in the decrypt function=",tag);
+	    console.log("iv in the decrypt function=",iv);
+	    console.log("the data in the decrypt function=",Buffer.from(enc_data));
+	    let enc_read_stream = new Stream.Readable();
+
+	    enc_read_stream.push(Buffer.from(enc_data));
+	    enc_read_stream.push(null);
+	    //enc_read_stream.emit('error',(err) => { console.log('!')})
+	    
+	    const dec_stream = aes.decrypt_stream(Buffer.from(iv),Buffer.from(tag));
+	    enc_read_stream.pipe(dec_stream);
+	    dec_stream.once('finish', () => console.log('File decrypted'));
+	    
+	    let dec_buffer = Buffer.alloc(0);
+	    dec_stream.on('readable', () =>
+		{
+		    const data = dec_stream.read() as Buffer;
+		    if(data)
+			dec_buffer = Buffer.concat([dec_buffer, data]);
+		}).once('finish', () => {
+		    cb(dec_buffer,iv);
+		    //console.log(dec_buffer);
+		});
+
+	});
+}
+
+module.exports = decFile;
+```
+Now we will compile them and include the produced JS files in our webpage.  Of course, we can merge the two functions in one file if we wanted.
+```sh
+PATH=$(npm bin):$PATH browserify  cubfunc_enc.ts -p [ tsify ] -o cubfunc_enc.js -s encFile
+PATH=$(npm bin):$PATH browserify  cubfunc_dec.ts -p [ tsify ] -o cubfunc_dec.js -s decFile
+```
+Our index.php will be adapted to do the fetching and calling the functions:
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Your Encryption Vault
+    </title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="cubfunc_enc.js" ></script>
+    <script src="cubfunc_dec.js" ></script>
+  </head>
+  <body>
+    <h1>Welcome to Cubbit Encryption Service</h1>
+    <div id="updiv">
+
+      <form id="uploadForm">
+	<input type="file" id="myFile" name="myFile" />
+	<input type="submit" value="Upload" />
+      </form>
+
+    </div>
+    <p id="encuuid"></p><p id="enckey"></p>
+    <br><br>
+    <div id="downdiv">
+      <form id="downloadForm">
+	Enter the File UUID:<input type="text" id="myuuid" name="myuuid" required/>
+	Enter the Key:<input type="text" id="myKey" name="myKey" required/>
+	<input type="submit" value="Download" />
+      </form>
+      <iframe id="download_iframe" style="display:none;"></iframe>
+    </div>
+
+    <script>
+      function buf2hex(buffer) { 
+	  return [...new Uint8Array(buffer)]
+	      .map(x => x.toString(16).padStart(2, '0'))
+	      .join('');
+      }
+
+      const hex2buf = hexString =>
+	    new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      
+      $(document).ready(function () {
+
+	  var encF=$.Deferred();
+	  var final_file;
+	  var mykey;
+	  function setFile(file,key) {
+	      //console.log(file);
+	      final_file=file;
+	      mykey=key;
+	      encF.resolve(true);
+	  }
+
+	  $("#uploadForm").on('submit',(function(e) {
+	      e.preventDefault();
+	      var file_data = $('#myFile').prop('files')[0];   
+
+	      var form_data = new FormData();
+              encFile (file_data,setFile);
+
+	      $.when(encF)
+	       .done(function(){
+
+		   var blob=new Blob([final_file]);
+
+		   form_data.append('encfile', blob);})
+		  .done(function(){
+
+		      $.ajax({
+			  url: "upload.php",
+			  type: "POST",
+			  data:  form_data,
+			  contentType: false,
+			  cache: false,
+			  processData: false,
+			  success: function(encdata){
+			      $("#encuuid").html("Your UUID for this file is: "+encdata).show();
+			      $("#enckey").html("Your encryption key for this file is: "+buf2hex(mykey)).show();
+			  }           
+		      });
+		  });
+	  }));
+
+	  $("#downloadForm").on('submit',(function(e) {
+	      e.preventDefault();
+	      var uuid = $("#myuuid").val();
+	      var key = $('#myKey').val();
+
+	      var form_data = new FormData();
+	      form_data.append("mykey", key);
+	      form_data.append("myuuid",uuid);
+		      $.ajax({
+			  url: "upload.php",
+			  type: "POST",
+			  data:  form_data,
+			  contentType: false,
+			  cache: false,
+			  processData: false,
+			  success: function(dpath){
+			      var encfile;
+			      //document.getElementById('download_iframe').src = dpath;
+			      var xhr = new XMLHttpRequest();
+			      xhr.open('GET', dpath, true);
+			      xhr.responseType = 'arraybuffer';
+
+			      xhr.onload = function(e) {
+				  var uInt8Array = new Uint8Array(this.response); 
+
+				  decFile(uInt8Array,hex2buf(key),setFile);
+
+				  var blob=new Blob([final_file] );
+				  var link=document.createElement('a');
+				  link.href=window.URL.createObjectURL(blob);
+				  link.download="myFileName";
+				  link.click();
+			      };
+
+			      xhr.send();
+			      console.log("the path to the encrypted file=",dpath);
+			  }           
+		      });
+	  }));
+      });
+
+    </script>
+  </body>
+</html>
+```
+Now our page is fully operating. It can encrypt and upload, and decrypt and download as well.
+
