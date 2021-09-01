@@ -312,35 +312,39 @@ import {WebFileStream} from '@cubbit/web-file-stream';
 import {CipherGCM} from 'crypto';
 import {Stream} from 'stream';
 
+
 function encFile(file,cb) {
+
     Enigma.init().then(() =>
 	{
 	    const file_stream = WebFileStream.create_read_stream(file);
 	    const aes = new Enigma.AES();
-	    aes.init();
 	    const iv = Enigma.Random.bytes(16);
+	    aes.init({key:iv,key_bits:256,algorithm:Enigma.AES.Algorithm.GCM}).then(()=>{
 
-	    const aes_stream = aes.encrypt_stream(iv);
-	    aes_stream.once('finish', () => console.log('File encrypted'));
-	    file_stream.pipe(aes_stream);
 
-            let enc_buffer = Buffer.alloc(0);
-            aes_stream.on('readable', () =>
-		{
-		    const data = aes_stream.read() as Buffer;
-		    if(data)
-			enc_buffer = Buffer.concat([enc_buffer, data]);
-		}).once('finish', () => {
-		    const tag = (aes_stream as CipherGCM).getAuthTag()
+		const aes_stream = aes.encrypt_stream(iv);
+		aes_stream.once('finish', () => console.log('File encrypted.'));
+		file_stream.pipe(aes_stream);
 
-		    var enc_bufferwithtag;
-		    enc_bufferwithtag = Buffer.concat([enc_buffer, tag]);
-		    console.log("the data+tag in the encrypt function=",enc_bufferwithtag);
-		    console.log("tag in the encrypt function=",tag);
-		    console.log("key in the encrypt function=",iv);
-		    console.log("the data in the encrypt function=",enc_buffer);
-		    cb(enc_bufferwithtag,iv);
+		let enc_buffer = Buffer.alloc(0);
+		aes_stream.on('readable', () =>
+		    {
+			const data = aes_stream.read() as Buffer;
+			if(data)
+			    enc_buffer = Buffer.concat([enc_buffer, data]);
+		    }).once('finish', () => {
+			const tag = (aes_stream as CipherGCM).getAuthTag()
+
+			var enc_bufferwithtag;
+			enc_bufferwithtag = Buffer.concat([enc_buffer, tag]);
+			//console.log("the data+tag in the encrypt function=",enc_bufferwithtag);
+			console.log("tag in the encrypt function=",tag);
+			console.log("key in the encrypt function=",iv,"aes.key=",aes.key);
+			//console.log("the data in the encrypt function=",enc_buffer);
+			cb(enc_bufferwithtag,iv);
 		    });
+	    });
 
 	});
 }
@@ -354,39 +358,48 @@ import {WebFileStream} from '@cubbit/web-file-stream';
 //import {CipherGCM} from 'crypto';
 import {Stream} from 'stream';
 
+
 function decFile(enc_buffer,iv,cb) {
+
+
     Enigma.init().then(() =>
 	{
+
+	    //console.log ("the whole in the decrypt function=",enc_buffer);
+	    
+	    const tag = Buffer.from(enc_buffer.slice(-16));
+	    const enc_data = Buffer.from(enc_buffer.slice(0,enc_buffer.length-16));
+	    const thekey = Buffer.from(iv);
+
 	    const aes = new Enigma.AES();
-	    aes.init();
+	    aes.init({key:thekey,key_bits:256,algorithm:Enigma.AES.Algorithm.GCM}).then(()=>{
 
-	    console.log ("the whole in the decrypt function=",enc_buffer);
-	    const tag = enc_buffer.slice(-16);
-	    const enc_data = enc_buffer.slice(0,enc_buffer.length-16);
+		console.log("the tag in the decrypt function=",tag);
+		console.log("key in the decrypt function=",aes.key,thekey);
+		//console.log("the data in the decrypt function=",enc_data);
 
-	    console.log("the tag in the decrypt function=",tag);
-	    console.log("iv in the decrypt function=",iv);
-	    console.log("the data in the decrypt function=",Buffer.from(enc_data));
-	    let enc_read_stream = new Stream.Readable();
+		let enc_read_stream = new Stream.Readable();
+		const dec_stream = aes.decrypt_stream(thekey,tag);
 
-	    enc_read_stream.push(Buffer.from(enc_data));
-	    enc_read_stream.push(null);
-	    //enc_read_stream.emit('error',(err) => { console.log('!')})
-	    
-	    const dec_stream = aes.decrypt_stream(Buffer.from(iv),Buffer.from(tag));
-	    enc_read_stream.pipe(dec_stream);
-	    dec_stream.once('finish', () => console.log('File decrypted'));
-	    
-	    let dec_buffer = Buffer.alloc(0);
-	    dec_stream.on('readable', () =>
-		{
-		    const data = dec_stream.read() as Buffer;
-		    if(data)
-			dec_buffer = Buffer.concat([dec_buffer, data]);
-		}).once('finish', () => {
-		    cb(dec_buffer,iv);
-		    //console.log(dec_buffer);
-		});
+
+		enc_read_stream.pipe(dec_stream);
+		dec_stream.once('finish', () => console.log('File decrypted.'));
+		enc_read_stream.on('error',(err) => { console.log('!')});
+		
+		let dec_buffer = Buffer.alloc(0);
+		dec_stream.on('readable', () =>
+		    {
+			const data = dec_stream.read() as Buffer;
+			if(data)
+			    dec_buffer = Buffer.concat([dec_buffer, data]);
+		    }).once('finish', () => {
+			cb(dec_buffer,thekey);
+			//console.log(dec_buffer);
+		    });
+		enc_read_stream.push(enc_data);
+		enc_read_stream.push(null);
+		
+	    });
 
 	});
 }
