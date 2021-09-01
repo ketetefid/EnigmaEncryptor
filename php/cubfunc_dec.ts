@@ -10,39 +10,41 @@ function decFile(enc_buffer,iv,cb) {
     Enigma.init().then(() =>
 	{
 
+	    //console.log ("the whole in the decrypt function=",enc_buffer);
 	    
+	    const tag = Buffer.from(enc_buffer.slice(-16));
+	    const enc_data = Buffer.from(enc_buffer.slice(0,enc_buffer.length-16));
+	    const thekey = Buffer.from(iv);
+
 	    const aes = new Enigma.AES();
-	    aes.init();
+	    aes.init({key:thekey,key_bits:256,algorithm:Enigma.AES.Algorithm.GCM}).then(()=>{
 
-	    console.log ("the whole in the decrypt function=",enc_buffer);
-	    
-	    const tag = enc_buffer.slice(-16);
-	    const enc_data = enc_buffer.slice(0,enc_buffer.length-16);
+		console.log("the tag in the decrypt function=",tag);
+		console.log("key in the decrypt function=",aes.key,thekey);
+		//console.log("the data in the decrypt function=",enc_data);
+
+		let enc_read_stream = new Stream.Readable();
+		const dec_stream = aes.decrypt_stream(thekey,tag);
 
 
-	    console.log("the tag in the decrypt function=",tag);
-	    console.log("iv in the decrypt function=",iv);
-	    console.log("the data in the decrypt function=",Buffer.from(enc_data));
-	    let enc_read_stream = new Stream.Readable();
-
-	    enc_read_stream.push(Buffer.from(enc_data));
-	    enc_read_stream.push(null);
-	    enc_read_stream.emit('error',(err) => { console.log('!')})
-	    
-	    const dec_stream = aes.decrypt_stream(Buffer.from(iv),Buffer.from(tag));
-	    enc_read_stream.pipe(dec_stream);
-	    dec_stream.once('finish', () => console.log('File decrypted'));
-	    
-	    let dec_buffer = Buffer.alloc(0);
-	    dec_stream.on('readable', () =>
-		{
-		    const data = dec_stream.read() as Buffer;
-		    if(data)
-			dec_buffer = Buffer.concat([dec_buffer, data]);
-		}).once('finish', () => {
-		    cb(dec_buffer,iv);
-		    //console.log(dec_buffer);
-		});
+		enc_read_stream.pipe(dec_stream);
+		dec_stream.once('finish', () => console.log('File decrypted.'));
+		enc_read_stream.on('error',(err) => { console.log('!')});
+		
+		let dec_buffer = Buffer.alloc(0);
+		dec_stream.on('readable', () =>
+		    {
+			const data = dec_stream.read() as Buffer;
+			if(data)
+			    dec_buffer = Buffer.concat([dec_buffer, data]);
+		    }).once('finish', () => {
+			cb(dec_buffer,thekey);
+			//console.log(dec_buffer);
+		    });
+		enc_read_stream.push(enc_data);
+		enc_read_stream.push(null);
+		
+	    });
 
 	});
 }
