@@ -2,7 +2,7 @@
 One of the nicest concepts is how you can encrypt everything before it leaves your device. In this tutorial we are going to setup an environment and demonstrate how to achieve the goal.
 # The goal
 We want to have an encryption vault where we can upload a file. The file will be encrypted before it leaves the client. Upon the upload, the interface will give the user a UUID and an encryption key by which they would be able to retrieve the original file later. When a download is requested, the encrypted file will be downloaded and then would be encrypted on the user's device. This way, no sensitive information would be transferred and most of the work will be done client-side.
-![](/php/img/demo.mp4)
+![](/php/img/demo.gif)
 :point_right: If you would like to test the final product as a full implementation, you may clone this repository and set it up according to Step 1 below. The web app will be available at http://127.0.0.1:8000 where you can encrypt and upload your files, and download and decrypt them as well.
 
 The other steps presented here will give you informatin on how one can develop such an app in more details.
