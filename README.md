@@ -19,7 +19,7 @@ chown -R nobody php/uploads
 ```
 Now you can fire up the web system by `docker-compose up`. The apache-php webserver will be available at http://127.0.0.1:8000 and the ReactJS webserver will be accessible at http://127.0.0.1:3001.
 
-Note: If you want to interact with the Apache webserver from the ReacJS side and be able to send get/post requests and connect to the DB from there, you need to modify some files accordingly:
+:point_right: `Note 2:` If you want to interact with the Apache webserver from the ReacJS side and be able to send get/post requests and connect to the DB from there, you need to modify some files accordingly:
 1. Add the following line of code to the beginning of `php/upload.php`.
 ```php
 header('Access-Control-Allow-Origin: *');
@@ -550,11 +550,12 @@ Consider a random word as a key.
 5. We limit the ASCII table to values between ASCII codes 32 (" ") and 125 ("}") included. If the upshift exceeds the alphabet's length, we would start from the beginning of the table.
 6. After the operation, we would reverse the chunk again.
 
-The code for this algorithm has been supplied in the file textEncryptor.js in this repository.
+The code for this algorithm has been supplied in the file `textEncryptor.js` in this repository.
 For example, consider the following message and key:
+```js
 Message="Nothing is impossible, the word itself says 'I'm possible'!"
 Key="Anyt#!ng"
-
+```
 then the message will be encrypted to:
 ![](/php/img/enctestsample.png)
 
