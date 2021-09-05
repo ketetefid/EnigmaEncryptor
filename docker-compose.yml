@@ -1,20 +1,18 @@
 version: '3.8'
 services:
-    php-apache-environment:
-        container_name: php-apache
+    php-apache:
+        container_name: webphp-apache
         build:
             context: ./php
-            dockerfile: Dockerfile
+            dockerfile: Dockerfile-php
         depends_on:
-            - db
+            - mysqldb
         volumes:
             - ./php/:/var/www/html/
         user: nobody
-            #        environment:
-#            APACHE_USER_ID: apache
-#            APACHE_GROUP_ID: apache
         ports:
             - 8000:80
+
     db:
         container_name: db
         image: mysql
@@ -26,4 +24,19 @@ services:
             MYSQL_PASSWORD: MYSQL_PASSWORD
         ports:
             - "9906:3306"
+
+    reactjs-app:
+        container_name: rjs
+        build:
+            context: .
+            dockerfile: Dockerfile-ReactJS
+        depends_on:
+            - php-apache
+        volumes:
+            - '.:/app'
+            - '/app/node_modules'
+        ports:
+            - 3001:3000
+        environment:
+            - CHOKIDAR_USEPOLLING=true
 

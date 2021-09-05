@@ -4,142 +4,65 @@
 	<meta charset="UTF-8">
 	<title>Your Encryption Vault
 	</title>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-	<script src="cubfunc_enc.js" ></script>
-	<script src="cubfunc_dec.js" ></script>
+	<link rel="stylesheet" href="home.css">
+	<script src="js/jquery-3.6.0.min.js"></script>
+	<script src="js/cubfuncs.js" ></script>
+	<style>
+	 @import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200;0,300;0,400;0,600;0,700;0,800;0,900;1,200;1,300;1,400;1,600;1,700;1,800;1,900&display=swap');
+	</style> 
     </head>
     <body>
-	<h1>Welcome to Cubbit Encryption Service</h1>
-	<div id="updiv">
+	<div id="base">
+	    <div class="topnav">
+		<div class="logo"><img src="img/cubbit-logo.png" alt="Cubbit log">
+		</div>
+		<div id="iswitch">
+ 		    <label class="switch" title="Encryption Mode">
+			<input type="checkbox" id="enctype">
+			<span class="slider">
+			    <span id="encryptedchecked">Encrypt</span>
+			    <span id="decryptedchecked">Decrypt</span>
+			</span>
+		    </label>
+		</div>
+	    </div> 
 
-	    <form id="uploadForm">
-		<input type="file" id="myFile" name="myFile" />
-		<input type="submit" value="Upload" />
-	    </form>
+	    <div id="maintext">Cubbit Vault</div>
+	    <div id="mainbody">
+		<div id="bodytext">Advanced online file encryption and decryption. Secure any file type and maintain your privacy!</div>
+		<div id="dropzoneback">
+		    <div id="dropzone">
+			<input type="file" id="myFileD" name="myFileD"/>
+			<div id="droptextreplaced" hidden><img src="img/exfilebig.png"></div>
+			<div id="droptextreplaced2" hidden></div>
+			<div id="dropzoneinputholder">
+			    <div id="dropzoneinput">
+				<div id="fileholder"><img src="img/exfile.png" alt="Example File"></div>
+				<div id="filetextholder">Choose a file!</div>
+				<div id="divider"></div>
+				<div id="thearrow"><img src="img/thearrow.png" alt="Select Arrow"></div>
+			    </div>
+			</div>
 
+			<div id="drophelptext">Or drop it here</div>
+		    </div>
+
+		</div>
+
+		<div id="buttonpart">
+		    <input type="button" class="encbuttons" value="Encrypt and Upload" id="encB">
+		    <span id="buttonspan" style="margin-left:24px;"></span>
+		    <input type="button" class="encbuttons" value="Download and Decrypt" id="decB">
+		</div>
+
+	    </div>	
 	</div>
-	<p id="encuuid"></p><p id="enckey"></p>
-	<br><br>
-	<div id="downdiv">
-	    <form id="downloadForm">
-		Enter the File UUID:<input type="text" id="myuuid" name="myuuid" required/>
-		Enter the Key:<input type="text" id="myKey" name="myKey" required/>
-		<input type="submit" value="Download" />
-	    </form>
-	    <iframe id="download_iframe" style="display:none;"></iframe>
+
+	<div class="notepartholder">
+	    <div class="notepart">The whole is never the sum of the parts - it is greater or lesser, depending on how well the individuals work together.</div>
 	</div>
 
-	<script>
-	 function buf2hex(buffer) { 
-	     return [...new Uint8Array(buffer)]
-		 .map(x => x.toString(16).padStart(2, '0'))
-		 .join('');
-	 }
-
-	 const hex2buf = hexString =>
-	     new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-	 
-	 $(document).ready(function () {
-
-	     var encF=$.Deferred();
-	     var decF=$.Deferred();
-	     var final_file;
-	     var mykey;
-	     function setFile(file,key) {
-		 //console.log(file);
-		 final_file=file;
-		 mykey=key;
-		 encF.resolve(true);
-
-	     }
-	     var final_file2;
-	     function setFile2(file,key) {
-		 //console.log(file);
-		 final_file2=file;
-		 mykey=key;
-		 decF.resolve(true);
-
-	     }
-
-
-	     $("#uploadForm").on('submit',(function(e) {
-		 e.preventDefault();
-		 var file_data = $('#myFile').prop('files')[0];   
-
-		 var form_data = new FormData();
-		 encFile (file_data,setFile);
-
-		 $.when(encF)
-		  .done(function(){
-
-		      var blob=new Blob([final_file]);
-
-		      form_data.append('encfile', blob);})
-		  .done(function(){
-
-		      $.ajax({
-			  url: "upload.php",
-			  type: "POST",
-			  data:  form_data,
-			  contentType: false,
-			  cache: false,
-			  processData: false,
-			  success: function(encdata){
-			      $("#encuuid").html("Your UUID for this file is: "+encdata).show();
-			      $("#enckey").html("Your encryption key for this file is: "+buf2hex(mykey)).show();
-
-			  }           
-		      });
-		  });
-	     }));
-
-
-
-	     $("#downloadForm").on('submit',(function(e) {
-		 e.preventDefault();
-
-		 var uuid = $("#myuuid").val();
-		 var key = $('#myKey').val();
-
-		 var form_data = new FormData();
-		 form_data.append("mykey", key);
-		 form_data.append("myuuid",uuid);
-		 $.ajax({
-		     url: "upload.php",
-		     type: "POST",
-		     data:  form_data,
-		     contentType: false,
-		     cache: false,
-		     processData: false,
-		     success: function(dpath){
-			 var encfile;
-			 //document.getElementById('download_iframe').src = dpath;
-			 var xhr = new XMLHttpRequest();
-			 xhr.open('GET', dpath, true);
-			 xhr.responseType = 'arraybuffer';
-
-			 xhr.onload = function(e) {
-			     var uInt8Array = new Uint8Array(this.response); 
-
-			     decFile(uInt8Array,hex2buf(key),setFile2);
-			     $.when(decF).done(function(){
-				 console.log("done");
-				 var blob=new Blob([final_file2] );
-				 var link=document.createElement('a');
-				 link.href=window.URL.createObjectURL(blob);
-				 link.download="myFileName";
-				 link.click();
-			     });
-
-			 };
-
-			 xhr.send();
-			 console.log("the path to the encrypted file=",dpath);
-		     }           
-		 });
-	     }));
-	 });
-
+	<script src="js/home.js">
 	</script>
     </body>
 </html>

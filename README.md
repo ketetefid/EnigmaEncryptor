@@ -1,61 +1,39 @@
 # Client-side Encryption
 One of the nicest concepts is how you can encrypt everything before it leaves your device. In this tutorial we are going to setup an environment and demonstrate how to achieve the goal.
 # The goal
-We want to have an encryption vault where we can upload a file. The file will be encrypted before leaving the client. Upon the upload, the interface will give the user a UUID and an encryption key by which they would be able to retrieve the original file. When a download is requested, the encrypted file will be downloaded and then would be encrypted on the user's device. This way, no sensitive information would be transferred and most of the work will be done client-side.
+We want to have an encryption vault where we can upload a file. The file will be encrypted before it leaves the client. Upon the upload, the interface will give the user a UUID and an encryption key by which they would be able to retrieve the original file later. When a download is requested, the encrypted file will be downloaded and then would be encrypted on the user's device. This way, no sensitive information would be transferred and most of the work will be done client-side.
 
+:point_right: If you would like to test the final product as a full implementation, you may clone this repository and set it up according to Step 1 below. The web app will be available at http://127.0.0.1:8000 where you can encrypt and upload your files, and download and decrypt them as well.
+
+The other steps presented here will give you informatin on how one can develop such an app in more details.
 ## Step 1: Setting up the development environment
-
-We would be utilizing Docker to setup an Apache-PHP webserver along with a MySql server for storing the uploaded entries. The following code will go to the `docker-compose.yml` file.
-```yml
-version: '3.8'
-services:
-    php-apache-environment:
-        container_name: php-apache
-        build:
-            context: ./php
-            dockerfile: Dockerfile
-        depends_on:
-            - db
-        volumes:
-            - ./php/:/var/www/html/
-        user: nobody
-        ports:
-            - 8000:80
-    db:
-        container_name: db
-        image: mysql
-        restart: always
-        environment:
-            MYSQL_ROOT_PASSWORD: MYSQL_ROOT_PASSWORD
-            MYSQL_DATABASE: MYSQL_DATABASE
-            MYSQL_USER: MYSQL_USER
-            MYSQL_PASSWORD: MYSQL_PASSWORD
-        ports:
-            - "9906:3306"
-```
-`Note` We have mapped a folder named `php` to the document root of the webserver so that we can easily tranfer files to the environment. We will also start the server as `nobody`, so you will have to make a folder named `uploads` and change its ownership to `nobody`. In the folder where you have cloned this repo:
+We would be utilizing Docker to setup an Apache-PHP webserver along with a MySql server for storing the uploaded entries. Also, a containerized version of ReactJS for UI development will be included. 
+Navigate to the root folder of your ReactJS project and clone this repository without creating an extra folder:
 ```sh
-mkdir -p php/uploads
+git clone https://github.com/ketetefid/EnigmaEncryptor .
+```
+
+:point_right: `Note 1:` We have mapped a folder named `php` to the document root of the Apache webserver so that we can easily tranfer files to the environment. We will also start the server as `nobody`, so you will need to change its ownership to `nobody`:
+```sh
 chown -R nobody php/uploads
 ```
-As well as these steps, the MySql credentials and the ports have been supplied here. The webserver will be available at http://127.0.0.1:8000
+Now you can fire up the web system by `docker-compose up`. The apache-php webserver will be available at http://127.0.0.1:8000 and the ReactJS webserver will be accessible at http://127.0.0.1:3001.
 
-In order to make the containers work together, an extra step would be required. Inside the `php` folder create a text file named Dockerfile where you will put the following:
+Note: If you want to interact with the Apache webserver from the ReacJS side and be able to send get/post requests and connect to the DB from there, you need to modify some files accordingly:
+1. Add the following line of code to the beginning of `php/upload.php`.
+```php
+header('Access-Control-Allow-Origin: *');
 ```
-FROM php:8.0-apache
-RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli pdo pdo_mysql
-RUN apt-get update && apt-get upgrade -y
-```
-Finally you can fire up the web system by `docker-compose up`.
-
+2. Replace all the urls in the js scripts/declarations for get/post requests with the complete form of `http://127.0.0.1:8000/upload.php`.
 ## Step 2: NodeJS and the needed programs for JS coding
-The whole thing could be done from within NodeJS but I opted for having q separate webserver and DB. Using NodeJS we would developt the codes and then prepare them for the web setup. 
-The library we want to utilize is [Enigma](https://github.com/cubbit/enigma). It provides us with the tools to encrypt web streams and many other things. The library itself uses NodeJS run-time environment and TypeScript so in order to make the final code run in our browser, we would need to convert the codes to JavaScript. For this reason, we will install the library along with [Browserify](https://browserify.org) and [tsify](https://www.npmjs.com/package/tsify):
+ 
+Obviously we would need NodeJS. The libraries we want to utilize are developed by [Cubbit](https://github.com/cubbit/). The tools provide us with the ability to encrypt web streams and do many other things in the area of encryption. The libraries themselves use NodeJS run-time environment and TypeScript so in order to make the final code run in our browser, we would need to convert the codes to JavaScript. We will install the library along with [Browserify](https://browserify.org) and [tsify](https://www.npmjs.com/package/tsify) in our system. 
 ```
 npm install @cubbit/enigma @cubbit/web-file-stream browserify tsify
 ```
+The `engima` and `web-file-stream` libraries will also be used in the ReactJS app.
 ## Step 3: Encrypting and decrypting in one go
-We want to check if we are able to use the Enigma library well. As it was mentioned, most of the work is going to be done in the client side. The webserver and the DB will only serve as a place for storing our encrypted files but will not have any access to our keys.
+We want to check if we are able to use the Enigma library well. As it was mentioned, most of the work is going to be done in the client side. The webserver and the DB will only serve as a place for storing our encrypted files, and they will not have any access to our keys.
 We will design a basic web layout where the user can upload his/her file through a form. The file will be encrypted on-the-go and then will fully be decrypted again and will be offered to the user as a download link.
 The heart of the procedure lies in the following code employing the Enigma library:
 ```ts
@@ -152,7 +130,6 @@ Set up a simple page layout as `index.php` in the `php` folder with the followin
 		 encF.resolve(true);
 	     }
 
-
 	     $("#uploadForm").on('submit',(function(e) {
 		 e.preventDefault();
 		 var file_data = $('#myFile').prop('files')[0];   
@@ -179,7 +156,7 @@ If you upload a file, it should give the same file back to you with the name `my
 
 ## Step 4: The DB implementation
 The last step was done to help us get familiar with the procedure, as debugging with a full setup might become very time-consuming. Now that we have been able to make use of the Enigma library, we will construct a database where the information for the encrypted files will be stored.
-When the user uploads the file, through a post request to our server, the encrypted file info will be placed in a table. In return, a unique ID about the uploaded file (which will be retrieved from the server) and the encryption key (which is extracted in the browser) will be given back to the user. This will enable him/her to request a download later by submitting the ID and the key. 
+When the user uploads a file, through a post request to our server, the encrypted file info will be placed in a table. In return, a unique ID about the uploaded file (which will be retrieved from the server) and the encryption key (which is extracted in the browser) will be given back to the user. This will enable him/her to request a download later by submitting the ID and the key. 
 In the `php` folder, populate a file named `upload.php` with the following content:
 ```php
 <?php
@@ -297,13 +274,13 @@ if (isset($_POST['mykey']) and isset($_POST['myuuid'])) {
 $conn->close();
 ?>
 ```
-As it is clear, the file includes information on how to connect to the DB. It creates a table with `id`, `uuid`, `filename` and `size` columns where the filename stores the path of the encrypted file. In the last two sections, the server will accept post requests when the user submits his/her encrypted file, and it will store the data in the table giving back the ID. In the last post check, it will retrieve the information form the DB when a user wants to download the uploaded file by giving back the path to the hosted encrypted file. Again, this is only for storing information and the encryption/decryption is going to be done on the client side.
+As it is clear, the file includes information on how to connect to the DB. It creates a table with `id`, `uuid`, `filename` and `size` columns where the filename stores the path of the encrypted file. In the last two sections, the server accepts post requests when the user submits his/her encrypted file, and it will store the data in the table giving back the ID. In the last post check, it will retrieve the information form the DB when a user wants to download the uploaded file, by giving back the path to the hosted encrypted file. Again, this is only for storing information and the encryption/decryption is going to be done on the client side.
 
 ## Step 5: Uploading, encrypting, storing -> retrieving, decrypting, downloading
 
 Now we want to expand our webpage so that upon uploading a file, it encrypts it and sends a request to the server to store the file and its data. Then, it will show the ID and the encryption key to the user. Later, when a user submits the key and ID, the page will fetch the encrypted file data from the DB and will receive the path to the encrypted file. The page will get it, decrypt it and will offer the download to the user.
 
-At this point we will write two TS functions, one for ecnrypting and the other for decrypting. These will be included in our page in the script tag.
+At this point we will write two TS functions, one for encrypting and the other for decrypting. These will be included in our page in the script tag.
 
 The encrypting function:
 ```js
@@ -556,4 +533,28 @@ Our index.php will be adapted to do the fetching and calling the functions:
 </html>
 ```
 Now our page is fully operating. It can encrypt and upload, and decrypt and download as well.
+
+## Step 6: Polishing and beautification
+Now that we have learned the fundamentals, we are able to further polish our web app. At this point, you can either go the traditional route of building websites, or use a modern tool like ReactJS. While the current UI was built from the ground up, it can be ported to ReactJS. Nonetheless, it is better to start developing a more component-based UI in ReactJS or other similar development frameworks.
+
+## Step 7: Further security practices
+The story of encryption does not end here. While there are several battle-tested algorithms that you can use and should use, on top of that, you have the option to implement your own encryption/decryption algorithm! Your own algorithm will not serve as the main encryption method, however, it has the ability to bring in more anonymity to the data. The strength lies in the fact that nobody knows what method you used for encryption, and you don't have to tell them either.
+
+As an example, consider the following algorithm to encrypt a message:
+
+Consider a random word as a key.
+1. The message is split into chunks of the size of the key length.
+2. Each chunk is reversed.
+3. Each character is replaced with its ASCII code.
+4. The code is shifted upward by n positions in the table of ASCII codes, where n is the sum of ASCII decimal codes of our key.
+5. We limit the ASCII table to values between ASCII codes 32 (" ") and 125 ("}") included. If the upshift exceeds the alphabet's length, we would start from the beginning of the table.
+6. After the operation, we would reverse the chunk again.
+
+The code for this algorithm has been supplied in the file textEncryptor.js in this repository.
+For example, consider the following message and key:
+Message="Nothing is impossible, the word itself says 'I'm possible'!"
+Key="Anyt#!ng"
+
+then the message will be encrypted to:
+![](/php/img/enctestsample.png)
 

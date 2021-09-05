@@ -1,42 +1,40 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.decFile = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.encFile = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 (function (Buffer){(function (){
 "use strict";
 exports.__esModule = true;
 var enigma_1 = require("@cubbit/enigma");
-//import {CipherGCM} from 'crypto';
-var stream_1 = require("stream");
-function decFile(enc_buffer, iv, cb) {
+var web_file_stream_1 = require("@cubbit/web-file-stream");
+function encFile(file, cb) {
     enigma_1["default"].init().then(function () {
+        var file_stream = web_file_stream_1.WebFileStream.create_read_stream(file);
         var aes = new enigma_1["default"].AES();
-        aes.init();
-        console.log("the whole in the decrypt function=", enc_buffer);
-        var tag = enc_buffer.slice(-16);
-        var enc_data = enc_buffer.slice(0, enc_buffer.length - 16);
-        console.log("the tag in the decrypt function=", tag);
-        console.log("iv in the decrypt function=", iv);
-        console.log("the data in the decrypt function=", Buffer.from(enc_data));
-        var enc_read_stream = new stream_1.Stream.Readable();
-        enc_read_stream.push(Buffer.from(enc_data));
-        enc_read_stream.push(null);
-        enc_read_stream.emit('error', function (err) { console.log('!'); });
-        var dec_stream = aes.decrypt_stream(Buffer.from(iv), Buffer.from(tag));
-        enc_read_stream.pipe(dec_stream);
-        dec_stream.once('finish', function () { return console.log('File decrypted'); });
-        var dec_buffer = Buffer.alloc(0);
-        dec_stream.on('readable', function () {
-            var data = dec_stream.read();
-            if (data)
-                dec_buffer = Buffer.concat([dec_buffer, data]);
-        }).once('finish', function () {
-            cb(dec_buffer, iv);
-            //console.log(dec_buffer);
+        var iv = enigma_1["default"].Random.bytes(16);
+        aes.init({ key: iv, key_bits: 256, algorithm: enigma_1["default"].AES.Algorithm.GCM }).then(function () {
+            var aes_stream = aes.encrypt_stream(iv);
+            aes_stream.once('finish', function () { return console.log('File encrypted.'); });
+            file_stream.pipe(aes_stream);
+            var enc_buffer = Buffer.alloc(0);
+            aes_stream.on('readable', function () {
+                var data = aes_stream.read();
+                if (data)
+                    enc_buffer = Buffer.concat([enc_buffer, data]);
+            }).once('finish', function () {
+                var tag = aes_stream.getAuthTag();
+                var enc_bufferwithtag;
+                enc_bufferwithtag = Buffer.concat([enc_buffer, tag]);
+                //console.log("the data+tag in the encrypt function=",enc_bufferwithtag);
+                console.log("tag in the encrypt function=", tag);
+                console.log("key in the encrypt function=", iv, "aes.key=", aes.key);
+                //console.log("the data in the encrypt function=",enc_buffer);
+                cb(enc_bufferwithtag, iv);
+            });
         });
     });
 }
-module.exports = decFile;
+module.exports = encFile;
 
 }).call(this)}).call(this,require("buffer").Buffer)
-},{"@cubbit/enigma":4,"buffer":97,"stream":204}],2:[function(require,module,exports){
+},{"@cubbit/enigma":4,"@cubbit/web-file-stream":28,"buffer":97}],2:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.base_x = void 0;

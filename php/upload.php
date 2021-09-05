@@ -29,7 +29,7 @@ $mytable="enc_filesDB";
    if ($conn->query($sql) !== TRUE) {
    echo "\nError deleting table: " . $conn->error;
    }
- */
+*/
 
 
 // Creating the table
@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS $mytable
      uuid     TEXT NOT NULL,
      filename TEXT NOT NULL,
      size     TEXT NOT NULL,
+     realname TEXT NOT NULL,
+     mime     TEXT NOT NULL,
      PRIMARY KEY (id)
   )  
 ";
@@ -73,32 +75,38 @@ if (isset($_POST['encfile'])) {
 
 
 //print_r($_FILES);
+
 if (isset($_FILES["encfile"])) {
 
-
-    $blobuid = bin2hex(random_bytes(16));
+    $uploadsuccess = true;
+    $blobuid = bin2hex(random_bytes(18));
     $blobpath = './uploads/'.bin2hex(random_bytes(20)); // to force usage of the form
     if (move_uploaded_file($_FILES["encfile"]["tmp_name"], $blobpath) !== TRUE) {
 	echo "The blob was NOT uploaded successfully.";
+	$uploadsuccess = false;
     }
     
-    $blobmeta = stat($blobpath);
-    $blobsize = $_FILES["encfile"]["size"];
+    //$blobmeta = stat($blobpath);
+    $blobsize = $_POST["filesize"];
+    $blobrealname = $_POST["realname"];
+    $blobtype = $_POST["filetype"];
 
-    $sql = "INSERT INTO $mytable (id,uuid,filename,size) VALUES (0,'$blobuid','$blobpath','$blobsize')";
+    $sql = "INSERT INTO $mytable (id,uuid,filename,size,realname,mime) VALUES (0,'$blobuid','$blobpath','$blobsize','$blobrealname','$blobtype')";
     
     if ($conn->query($sql) !== TRUE) {
 	echo "\nError inserting entries. " . $conn->error;
     }
 
     // Send the UUID back
-    echo $blobuid;
+    if ($uploadsuccess) {
+	echo $blobuid;
+    }
 
 }
 
 
 
-if (isset($_POST['mykey']) and isset($_POST['myuuid'])) {
+if (isset($_POST['myuuid'])) {
 
 /*
     // Show the table
@@ -118,23 +126,26 @@ if (isset($_POST['mykey']) and isset($_POST['myuuid'])) {
 */
     
     $fuuid = $_POST['myuuid'];
-    $deckey = $_POST['mykey'];
 
     // Bad practice because of injection
     //$sql = "SELECT filename FROM $mytable WHERE uuid = '".$fuuid."'";
     //$rs = $conn->query($sql);
 
 
-    $sql = "SELECT filename FROM $mytable WHERE uuid = ?";
+    $sql = "SELECT filename,size,realname,mime FROM $mytable WHERE uuid = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param('s',$fuuid);
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
 	$thefilename=$row['filename'];
+	$thefilesize=$row['size'];
+	$thefilemime=$row['mime'];
+	$thefilerealname=$row['realname'];
     }
-    
-    echo $thefilename;
+
+    $thefileprops=[$thefilename, $thefilesize, $thefilemime, $thefilerealname];
+    echo json_encode($thefileprops);
 
 }
 
