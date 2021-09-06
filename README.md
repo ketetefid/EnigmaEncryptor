@@ -14,7 +14,7 @@ git clone https://github.com/ketetefid/EnigmaEncryptor
 ```
 Then, copy the contents of this repository into the root folder of your ReactJS project (take care of the .dockerignor file as well).
 ```sh
-cp -a /the/path/to/EnigmaEncryptor/* /the/path/to/your-reactjs-project-folder/
+rsync -av /the/path/to/EnigmaEncryptor/ /the/path/to/your-reactjs-project-folder/ --exclude .git
 ```
 :point_right: `Note 1:` We have mapped a folder named `php` to the document root of the Apache webserver so that we can easily tranfer files to the environment. We will also start the server as `nobody`. Create the `uploads` folder and change the ownership to `nobody`:
 ```sh
