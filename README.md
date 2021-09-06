@@ -12,7 +12,7 @@ We would be utilizing Docker to setup an Apache-PHP webserver along with a MySql
 ```sh
 git clone https://github.com/ketetefid/EnigmaEncryptor
 ```
-Then, copy the contents of this repository into the root folder of your ReactJS project (take care of the `.dockerignore` file as well).
+At this point, if you do not want to have a containerized ReactJS app, delete the block `reactjs-app` from `docker-compose.yml`. If you prefer to work on a containerized version of your ReactJS app, then continue and copy the contents of this repository into the root folder of your ReactJS project (take care of the `.dockerignore` file as well).
 ```sh
 rsync -av /the/path/to/EnigmaEncryptor/ /the/path/to/your-reactjs-project-folder/ --exclude .git
 ```
