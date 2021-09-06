@@ -6,7 +6,7 @@ services:
             context: ./php
             dockerfile: Dockerfile-php
         depends_on:
-            - mysqldb
+            - db
         volumes:
             - ./php/:/var/www/html/
         user: nobody
