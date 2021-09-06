@@ -22,7 +22,7 @@ Now you can fire up the web system by `docker-compose up`. The apache-php webser
 :point_right: `Note 2:` If you want to interact with the Apache webserver from the ReactJS side and be able to send get/post requests and connect to the DB from there, you need to modify some files accordingly:
 1. Add the following line of code to the beginning of `php/upload.php`.
 ```php
-header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Origin: http://127.0.0.1:3001');
 ```
 2. Replace all the urls in the js scripts/declarations for get/post requests with the complete form of `http://127.0.0.1:8000/upload.php`.
 ## Step 2: NodeJS and the needed programs for JS coding
