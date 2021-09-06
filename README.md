@@ -8,13 +8,15 @@ We want to have an encryption vault where we can upload a file. The file will be
 The other steps presented here will give you informatin on how one can develop such an app in more details.
 ## Step 1: Setting up the development environment
 We would be utilizing Docker to setup an Apache-PHP webserver along with a MySql server for storing the uploaded entries. Also, a containerized version of ReactJS for UI development will be included. 
-Navigate to the root folder of your ReactJS project and clone this repository without creating an extra folder:
+
 ```sh
-git clone https://github.com/ketetefid/EnigmaEncryptor .
+git clone https://github.com/ketetefid/EnigmaEncryptor
 ```
+Then, copy the contents of this repository into the root folder of your ReactJS project.
 
 :point_right: `Note 1:` We have mapped a folder named `php` to the document root of the Apache webserver so that we can easily tranfer files to the environment. We will also start the server as `nobody`, so you will need to change its ownership to `nobody`:
 ```sh
+mkdir php/uploads
 chown -R nobody php/uploads
 ```
 Now you can fire up the web system by `docker-compose up`. The apache-php webserver will be available at http://127.0.0.1:8000 and the ReactJS webserver will be accessible at http://127.0.0.1:3001.
